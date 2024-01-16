@@ -1,4 +1,4 @@
-package com.vnstudio.objectdetector.ui.theme
+package com.vnteam.objectdetector.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

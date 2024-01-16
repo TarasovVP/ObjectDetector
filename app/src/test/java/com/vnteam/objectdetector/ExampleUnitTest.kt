@@ -1,4 +1,4 @@
-package com.vnstudio.objectdetector
+package com.vnteam.objectdetector
 
 import org.junit.Test
 
