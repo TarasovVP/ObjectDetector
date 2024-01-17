@@ -1,71 +1,60 @@
-package com.vnteam.objectdetector;
+package com.vnteam.objectdetector
 
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import com.vnteam.objectdetector.GraphicOverlay.Graphic
 
-import androidx.annotation.Nullable;
+class InferenceInfoGraphic(
+    private val overlay: GraphicOverlay,
+    private val frameLatency: Long,
+    private val detectorLatency: Long,
+    private val framesPerSecond: Int?
+) : Graphic(overlay) {
+    private val textPaint: Paint = Paint()
+    private var showLatencyInfo = true
 
-public class InferenceInfoGraphic extends GraphicOverlay.Graphic {
-
-  private static final int TEXT_COLOR = Color.WHITE;
-  private static final float TEXT_SIZE = 60.0f;
-
-  private final Paint textPaint;
-  private final GraphicOverlay overlay;
-  private final long frameLatency;
-  private final long detectorLatency;
-
-  @Nullable private final Integer framesPerSecond;
-  private boolean showLatencyInfo = true;
-
-  public InferenceInfoGraphic(
-      GraphicOverlay overlay,
-      long frameLatency,
-      long detectorLatency,
-      @Nullable Integer framesPerSecond) {
-    super(overlay);
-    this.overlay = overlay;
-    this.frameLatency = frameLatency;
-    this.detectorLatency = detectorLatency;
-    this.framesPerSecond = framesPerSecond;
-    textPaint = new Paint();
-    textPaint.setColor(TEXT_COLOR);
-    textPaint.setTextSize(TEXT_SIZE);
-    textPaint.setShadowLayer(5.0f, 0f, 0f, Color.BLACK);
-    postInvalidate();
-  }
-
-  public InferenceInfoGraphic(GraphicOverlay overlay) {
-    this(overlay, 0, 0, null);
-    showLatencyInfo = false;
-  }
-
-  @Override
-  public synchronized void draw(Canvas canvas) {
-    float x = TEXT_SIZE * 0.5f;
-    float y = TEXT_SIZE * 1.5f;
-
-    canvas.drawText(
-        "InputImage size: " + overlay.getImageHeight() + "x" + overlay.getImageWidth(),
-        x,
-        y,
-        textPaint);
-
-    if (!showLatencyInfo) {
-      return;
+    init {
+        textPaint.color = TEXT_COLOR
+        textPaint.textSize = TEXT_SIZE
+        textPaint.setShadowLayer(5.0f, 0f, 0f, Color.BLACK)
+        postInvalidate()
     }
 
-    if (framesPerSecond != null) {
-      canvas.drawText(
-          "FPS: " + framesPerSecond + ", Frame latency: " + frameLatency + " ms",
-          x,
-          y + TEXT_SIZE,
-          textPaint);
-    } else {
-      canvas.drawText("Frame latency: " + frameLatency + " ms", x, y + TEXT_SIZE, textPaint);
+    constructor(overlay: GraphicOverlay) : this(overlay, 0, 0, null) {
+        showLatencyInfo = false
     }
-    canvas.drawText(
-        "Detector latency: " + detectorLatency + " ms", x, y + TEXT_SIZE * 2, textPaint);
-  }
+
+    @Synchronized
+    override fun draw(canvas: Canvas?) {
+        val x = TEXT_SIZE * 0.5f
+        val y = TEXT_SIZE * 1.5f
+        canvas?.drawText(
+            "InputImage size: " + overlay.imageHeight + "x" + overlay.imageWidth,
+            x,
+            y,
+            textPaint
+        )
+        if (!showLatencyInfo) {
+            return
+        }
+        if (framesPerSecond != null) {
+            canvas?.drawText(
+                "FPS: $framesPerSecond, Frame latency: $frameLatency ms",
+                x,
+                y + TEXT_SIZE,
+                textPaint
+            )
+        } else {
+            canvas?.drawText("Frame latency: $frameLatency ms", x, y + TEXT_SIZE, textPaint)
+        }
+        canvas?.drawText(
+            "Detector latency: $detectorLatency ms", x, y + TEXT_SIZE * 2, textPaint
+        )
+    }
+
+    companion object {
+        private const val TEXT_COLOR = Color.WHITE
+        private const val TEXT_SIZE = 60.0f
+    }
 }

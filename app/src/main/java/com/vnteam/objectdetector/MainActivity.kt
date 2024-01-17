@@ -1,212 +1,127 @@
 package com.vnteam.objectdetector
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.hardware.camera2.CameraAccessException
-import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CameraManager
-import android.hardware.camera2.params.OutputConfiguration
-import android.hardware.camera2.params.SessionConfiguration
+import android.content.res.Configuration
 import android.os.Bundle
-import android.util.Log
-import android.view.Surface
-import android.view.SurfaceHolder
-import android.view.SurfaceView
+import android.util.Size
+import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import com.google.mlkit.common.model.LocalModel
+import com.google.mlkit.vision.camera.CameraSourceConfig
+import com.google.mlkit.vision.camera.CameraXSource
+import com.google.mlkit.vision.camera.DetectionTaskCallback
+import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.objects.ObjectDetection
-import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
-import com.vnteam.objectdetector.ui.theme.ObjectDetectorTheme
-
+import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
 
 class MainActivity : ComponentActivity() {
 
-    private var cameraId: String? = null
-    private var surface: Surface? = null
-    private var cameraDevice: CameraDevice? = null
-    private var cameraCaptureSession: CameraCaptureSession? = null
+    private var previewView: PreviewView? = null
+    private var graphicOverlay: GraphicOverlay? = null
+    private var needUpdateGraphicOverlayImageSourceInfo = false
+    private var lensFacing: Int = CameraSourceConfig.CAMERA_FACING_BACK
+    private var cameraXSource: CameraXSource? = null
+    private var customObjectDetectorOptions: CustomObjectDetectorOptions? = null
+    private var targetResolution: Size? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        startActivity(Intent(this, CameraXSourceDemoActivity::class.java))
-        return
-        cameraId = getBackCameraId()
-        setContent {
-            ObjectDetectorTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    AndroidView(
-                        modifier = Modifier.fillMaxSize(),
-                        factory = {
-                            SurfaceView(this).apply {
-                                surface = this.holder.surface
-                                holder.addCallback(object : SurfaceHolder.Callback {
-                                    override fun surfaceCreated(holder: SurfaceHolder) {
-                                        openCamera()
-                                    }
-
-                                    override fun surfaceChanged(
-                                        holder: SurfaceHolder,
-                                        format: Int,
-                                        width: Int,
-                                        height: Int,
-                                    ) = Unit
-
-                                    override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                        closeCamera()
-                                    }
-                                })
-                            }
-                        }
-                    )
-                }
-            }
-        }
-    }
-
-    private fun getBackCameraId(): String? {
-        var backCameraId: String? = null
-        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-
-        return try {
-            for (cameraId in manager.cameraIdList) {
-                val characteristics = manager.getCameraCharacteristics(cameraId)
-                val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
-                if (lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
-                    backCameraId = cameraId
-                    break
-                }
-            }
-            backCameraId
-        } catch (e: CameraAccessException) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    private fun openCamera() {
-        if (cameraId == null) {
-            Log.e("CameraTAG", "MainActivity openCamera cameraId == null")
-            return
-        }
-        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-        try {
-            if (ActivityCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.CAMERA
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                manager.openCamera(cameraId.toString(), object : CameraDevice.StateCallback() {
-                    override fun onOpened(camera: CameraDevice) {
-                        Log.e("CameraTAG", "MainActivity openCamera onOpened cameraId $cameraId")
-                        cameraDevice = camera
-                        createCaptureSession()
-                    }
-
-                    override fun onDisconnected(camera: CameraDevice) {
-                        Log.e("CameraTAG", "MainActivity openCamera onDisconnected")
-                        camera.close()
-                    }
-
-                    override fun onError(camera: CameraDevice, error: Int) {
-                        Log.e("CameraTAG", "MainActivity openCamera onError")
-                        camera.close()
-                    }
-                }, null)
-            } else {
-                requestPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
-            }
-        } catch (e: CameraAccessException) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun closeCamera() {
-        cameraCaptureSession?.close()
-        cameraCaptureSession = null
-
-        cameraDevice?.close()
-        cameraDevice = null
-    }
-
-    private fun createCaptureSession() {
-        Log.e("CameraTAG", "MainActivity createCaptureSession surface $surface")
-        val surface1 = surface ?: return
-        try {
-            val sessionConfig = SessionConfiguration(
-                SessionConfiguration.SESSION_REGULAR,
-                listOf(OutputConfiguration(surface1)),
-                ContextCompat.getMainExecutor(this),
-                object : CameraCaptureSession.StateCallback() {
-                    override fun onConfigured(session: CameraCaptureSession) {
-                        cameraCaptureSession = session
-                        Log.e(
-                            "CameraTAG",
-                            "MainActivity createCaptureSession onConfigured cameraId $cameraId"
-                        )
-                        val captureRequestBuilder =
-                            cameraDevice?.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-                                ?.apply {
-                                    addTarget(surface1)
-                                }
-                        captureRequestBuilder?.let {
-                            session.setRepeatingRequest(
-                                it.build(),
-                                null,
-                                null
-                            )
-                        }
-                    }
-
-                    override fun onConfigureFailed(session: CameraCaptureSession) {
-                        Log.e(
-                            "CameraTAG",
-                            "MainActivity createCaptureSession onConfigureFailed cameraId $cameraId"
-                        )
-                    }
-                })
-            cameraDevice?.createCaptureSession(sessionConfig)
-        } catch (e: CameraAccessException) {
-            Log.e("CameraTAG", "MainActivity createCaptureSession error ${e.localizedMessage}")
-            e.printStackTrace()
-        }
-    }
-
-    private fun startDeviceObjectDetector() {
-        val options = ObjectDetectorOptions.Builder()
-            .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
-            .enableClassification()
-            .build()
-        val objectDetector = ObjectDetection.getClient(options)
-    }
+    private val isPortraitMode: Boolean
+        get() = applicationContext.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
+    private val localModel: LocalModel
+        get() = LocalModel.Builder().setAssetFilePath("custom_models/object_labeler.tflite").build()
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { isGranted: Map<String, @JvmSuppressWildcards Boolean>? ->
             if (isGranted?.values?.contains(false) == true) {
-                Log.e(
-                    "CameraTAG",
-                    "MainActivity requestPermissionLauncher isGranted?.values?.contains(false) == true"
-                )
+                Toast.makeText(this, "Permission not granted", Toast.LENGTH_SHORT).show()
             } else {
-                openCamera()
+                startCameraXSource()
             }
         }
 
-    override fun onStop() {
-        super.onStop()
-        closeCamera()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        previewView = findViewById(R.id.preview_view)
+        graphicOverlay = findViewById(R.id.graphic_overlay)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (cameraXSource != null &&
+            PreferenceUtils.getCustomObjectDetectorOptionsForLivePreview(this, localModel).equals(customObjectDetectorOptions) &&
+            PreferenceUtils.getCameraXTargetResolution(applicationContext, lensFacing) != null &&
+            PreferenceUtils.getCameraXTargetResolution(applicationContext, lensFacing) == targetResolution) {
+            startCameraXSource()
+        } else {
+            createThenStartCameraXSource()
+        }
+    }
+
+    private fun startCameraXSource() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            cameraXSource?.start()
+        } else {
+            requestPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
+        }
+    }
+
+    private fun createThenStartCameraXSource() {
+        cameraXSource?.close()
+        customObjectDetectorOptions =
+            PreferenceUtils.getCustomObjectDetectorOptionsForLivePreview(applicationContext, localModel)
+        val objectDetector = customObjectDetectorOptions?.let { ObjectDetection.getClient(it) }
+        val detectionTaskCallback: DetectionTaskCallback<List<DetectedObject>> =
+            DetectionTaskCallback<List<DetectedObject>> { detectionTask ->
+                detectionTask
+                    .addOnSuccessListener { results -> onDetectionTaskSuccess(results) }
+                    .addOnFailureListener { e -> onDetectionTaskFailure(e) }
+            }
+
+        targetResolution =
+            PreferenceUtils.getCameraXTargetResolution(applicationContext, lensFacing)
+        objectDetector?.let { CameraSourceConfig.Builder(applicationContext, it, detectionTaskCallback).setFacing(lensFacing) }?.apply {
+            targetResolution?.let { setRequestedPreviewSize(it.width, it.height) }
+            cameraXSource = previewView?.let { CameraXSource(build(), it) }
+        }
+        needUpdateGraphicOverlayImageSourceInfo = true
+        startCameraXSource()
+    }
+
+    private fun onDetectionTaskSuccess(results: List<DetectedObject>) {
+        graphicOverlay?.apply {
+            clear()
+            if (needUpdateGraphicOverlayImageSourceInfo) {
+                cameraXSource?.previewSize.takeIf { it != null }?.let { size ->
+                    val isImageFlipped =
+                        cameraXSource?.cameraFacing == CameraSourceConfig.CAMERA_FACING_FRONT
+                    if (isPortraitMode) {
+                        setImageSourceInfo(size.height, size.width, isImageFlipped)
+                    } else {
+                        setImageSourceInfo(size.width, size.height, isImageFlipped)
+                    }
+                    needUpdateGraphicOverlayImageSourceInfo = false
+                }
+            }
+            results.forEach { detectedObject ->
+                add(ObjectGraphic(this, detectedObject))
+            }
+            add(InferenceInfoGraphic(this))
+            postInvalidate()
+        }
+    }
+
+    private fun onDetectionTaskFailure(e: Exception) {
+        graphicOverlay?.clear()
+        graphicOverlay?.postInvalidate()
+        val error = "Failed to process. Error: " + e.localizedMessage
+        Toast.makeText(graphicOverlay?.context, error, Toast.LENGTH_SHORT).show()
     }
 }

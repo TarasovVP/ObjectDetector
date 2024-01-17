@@ -1,19 +1,3 @@
-/*
- * Copyright 2020 Google LLC. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.vnteam.objectdetector
 
 import android.graphics.Canvas
@@ -26,7 +10,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-class ObjectGraphic constructor(
+class ObjectGraphic(
   overlay: GraphicOverlay,
   private val detectedObject: DetectedObject
 ) : GraphicOverlay.Graphic(overlay) {
@@ -52,7 +36,7 @@ class ObjectGraphic constructor(
     }
   }
 
-  override fun draw(canvas: Canvas) {
+  override fun draw(canvas: Canvas?) {
     val colorID =
       if (detectedObject.trackingId == null) 0
       else abs(detectedObject.trackingId!! % NUM_COLORS)
@@ -85,9 +69,9 @@ class ObjectGraphic constructor(
     rect.right = max(x0, x1)
     rect.top = translateY(rect.top)
     rect.bottom = translateY(rect.bottom)
-    canvas.drawRect(rect, boxPaints[colorID])
+    canvas?.drawRect(rect, boxPaints[colorID])
 
-    canvas.drawRect(
+    canvas?.drawRect(
       rect.left - STROKE_WIDTH,
       rect.top + yLabelOffset,
       rect.left + textWidth + 2 * STROKE_WIDTH,
@@ -95,7 +79,7 @@ class ObjectGraphic constructor(
       labelPaints[colorID]
     )
     yLabelOffset += TEXT_SIZE
-    canvas.drawText(
+    canvas?.drawText(
       "Tracking ID: " + detectedObject.trackingId,
       rect.left,
       rect.top + yLabelOffset,
@@ -103,14 +87,14 @@ class ObjectGraphic constructor(
     )
     yLabelOffset += lineHeight
     for (label in detectedObject.labels) {
-      canvas.drawText(
+      canvas?.drawText(
         label.text + " (index: " + label.index + ")",
         rect.left,
         rect.top + yLabelOffset,
         textPaints[colorID]
       )
       yLabelOffset += lineHeight
-      canvas.drawText(
+      canvas?.drawText(
         String.format(
           Locale.US,
           LABEL_FORMAT,

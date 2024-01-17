@@ -2,5 +2,4 @@
 <resources>
 
     <style name="Theme.ObjectDetector" parent="android:Theme.Material.Light.NoActionBar" />
-    <style name="Theme.CameraX" parent="Theme.AppCompat.Light.DarkActionBar" />
 </resources>
