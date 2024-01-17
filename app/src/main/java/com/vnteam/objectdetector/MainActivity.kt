@@ -1,6 +1,7 @@
 package com.vnteam.objectdetector
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCaptureSession
@@ -24,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.mlkit.vision.objects.ObjectDetection
+import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import com.vnteam.objectdetector.ui.theme.ObjectDetectorTheme
 
 
@@ -36,6 +39,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        startActivity(Intent(this, CameraXSourceDemoActivity::class.java))
+        return
         cameraId = getBackCameraId()
         setContent {
             ObjectDetectorTheme {
@@ -178,6 +183,14 @@ class MainActivity : ComponentActivity() {
             Log.e("CameraTAG", "MainActivity createCaptureSession error ${e.localizedMessage}")
             e.printStackTrace()
         }
+    }
+
+    private fun startDeviceObjectDetector() {
+        val options = ObjectDetectorOptions.Builder()
+            .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
+            .enableClassification()
+            .build()
+        val objectDetector = ObjectDetection.getClient(options)
     }
 
     private val requestPermissionLauncher =
