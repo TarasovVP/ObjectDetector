@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
     private val isPortraitMode: Boolean
         get() = applicationContext.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
     private val localModel: LocalModel
-        get() = LocalModel.Builder().setAssetFilePath("custom_models/object_labeler.tflite").build()
+        get() = LocalModel.Builder().setAssetFilePath("custom_models/bike_car_model.tflite").build()
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { isGranted: Map<String, @JvmSuppressWildcards Boolean>? ->
